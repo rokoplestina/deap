@@ -48,13 +48,17 @@ def selWorst(individuals, k, fit_attr="fitness"):
     return sorted(individuals, key=attrgetter(fit_attr))[:k]
 
 
-def selVCH(individuals, k, fit_attr="fitness"):
+def selVCH(individuals, k, fit_attr="fitness", nv_attr="nv", cv_attr="cv"):
     """Select the *k* best individuals among the input *individuals*. The
     list returned contains references to the input *individuals*.
 
     :param individuals: A list of individuals to select from.
     :param k: The number of individuals to select.
-    :param fit_attr: The attribute of individuals to use as selection criterion
+    :param fit_attr: The fitness attribute of individuals to use as selection criterion
+    :param nv_attr: The is number of violated constraints attribute of individuals 
+                    to use as selection criterion
+    :param cv_attr: The amount od constraint violation attribute of individuals 
+                    to use as selection criterion
     :returns: A list containing the k best individuals.
 
     This method is particularly suitable when there are feasiblity constraints
@@ -73,30 +77,26 @@ def selVCH(individuals, k, fit_attr="fitness"):
     def _vch_compare(ind1, ind2):
         """
         Compare two individuals based on Violation Factor stepwise approach.
-
-        Note:
-            ind.values[0] -> fitness
-            ind.values[1] -> NV
-            ind.values[2] -> CV
         """
-        f1 = True if ind1.values[1] == 0 else False
-        f2 = True if ind2.values[1] == 0 else False
+
+        f1 = True if getattr(ind1, fit_attr).values[0] == 0 else False
+        f2 = True if getattr(ind2, fit_attr).values[0] == 0 else False
         if f1 and f2:
             # both are feasible (individual with higher fitness wins)
-            value = ind1.values[0] - ind2.values[0]
+            value = getattr(ind1, fit_attr).values[0] - getattr(ind2, fit_attr).values[0]
         elif f1 or f2:
             # only one is feasible (the feasible individual wins)
             value = 1 if f1 else -1
-        elif ind1.values[1] != ind2.values[1]:
+        elif getattr(ind1, nv_attr) != getattr(ind2, nv_attr):
             # both infeasible (individual with lower number of violations wins)
-            value = ind2.values[1] - ind1.values[1]
+            value = getattr(ind2, nv_attr) - getattr(ind1, nv_attr)
         else:
             # both infeasible with same number of violations (individual with
             # lower constraint violation wins)
-            value = ind2.values[2] - ind1.values[2]
+            value = getattr(ind2, cv_attr) - getattr(ind1, cv_attr)
         return int(value)
-
-    return sorted(individuals, cmp=_vch_compare, key=attrgetter(fit_attr))[:k]
+    # return sorted(individuals, cmp=_vch_compare, key=attrgetter(fit_attr))[:k]
+    return sorted(individuals, cmp=_vch_compare)[:k]
 
 
 def selTournament(individuals, k, tournsize, fit_attr="fitness"):

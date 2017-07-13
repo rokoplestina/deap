@@ -183,6 +183,111 @@ def selTournamentDCD(individuals, k):
 
     return chosen
 
+
+def selTournamentVCH(individuals, k, nv_attr="nv", cv_attr="cv"):
+    """
+    XXXXXXXXXXXXXXXXXXXXXXX
+    
+    
+    Tournament selection based on dominance (D) between two individuals, if
+    the two individuals do not interdominate the selection is made
+    based on crowding distance (CD). The *individuals* sequence length has to
+    be a multiple of 4. Starting from the beginning of the selected
+    individuals, two consecutive individuals will be different (assuming all
+    individuals in the input list are unique). Each individual from the input
+    list won't be selected more than twice.
+
+    This selection requires the individuals to have a :attr:`crowding_dist`
+    attribute, which can be set by the :func:`assignCrowdingDist` function.
+
+    :param individuals: A list of individuals to select from.
+    :param k: The number of individuals to select.
+    :returns: A list of selected individuals.
+    """
+
+    def tourn(ind1, ind2):
+        """
+        Compare two individuals based on Violation Factor stepwise approach.
+        """
+        f1 = True if ind1.fitness.values[0] == 0 else False
+        f2 = True if ind2.fitness.values[0] == 0 else False
+        if f1 and f2:
+            # both are feasible (individual with higher fitness wins)
+            value = ind1.fitness.values[0] - ind2.fitness.values[0]
+        elif f1 or f2:
+            # only one is feasible (the feasible individual wins)
+            value = 1 if f1 else -1
+        elif getattr(ind1, nv_attr) != getattr(ind2, nv_attr):
+            # both infeasible (individual with lower number of violations wins)
+            value = getattr(ind2, nv_attr) - getattr(ind1, nv_attr)
+        else:
+            # both infeasible with same number of violations (individual with
+            # lower constraint violation wins)
+            value = getattr(ind2, cv_attr) - getattr(ind1, cv_attr)
+        return ind1 if int(value) >= 0 else ind2
+
+    individuals_1 = random.sample(individuals, len(individuals))
+    individuals_2 = random.sample(individuals, len(individuals))
+
+    chosen = []
+    for i in xrange(0, k, 4):
+        chosen.append(tourn(individuals_1[i], individuals_1[i + 1]))
+        chosen.append(tourn(individuals_1[i + 2], individuals_1[i + 3]))
+        chosen.append(tourn(individuals_2[i], individuals_2[i + 1]))
+        chosen.append(tourn(individuals_2[i + 2], individuals_2[i + 3]))
+
+    return chosen
+
+def sortVCH(individuals, k, fit_attr="fitness", nv_attr="nv", cv_attr="cv"):
+    """Select the *k* best individuals among the input *individuals*. The
+    list returned contains references to the input *individuals*.
+
+    :param individuals: A list of individuals to select from.
+    :param k: The number of individuals to select.
+    :param fit_attr: The fitness attribute of individuals to use as selection criterion
+    :param nv_attr: The is number of violated constraints attribute of individuals 
+                    to use as selection criterion
+    :param cv_attr: The amount od constraint violation attribute of individuals 
+                    to use as selection criterion
+    :returns: A list containing the k best individuals.
+
+    This method is particularly suitable when there are feasiblity constraints
+    alongside fitness. Fitness is not penalized but simply a different way of
+    sorting is used.
+
+    Important: Evaluation function need to produce a tuple of (fitness, NV, CV)
+    where 'fitness' is the usual fitness, 'NV' is number of violated constraints,
+    and 'CV' is the amount od constraint violation (look into the publication for
+    more details)
+
+    .. [Chehouri2016] Cheehouri, Younes, Perron and Ilinca, 2016, A Constraint-handling
+    Technique for Genetic Algorithms using a Violation Factor
+    """
+
+    def _vch_compare(ind1, ind2):
+        """
+        Compare two individuals based on Violation Factor stepwise approach.
+        """
+
+        f1 = True if getattr(ind1, fit_attr).values[0] == 0 else False
+        f2 = True if getattr(ind2, fit_attr).values[0] == 0 else False
+        if f1 and f2:
+            # both are feasible (individual with higher fitness wins)
+            value = getattr(ind1, fit_attr).values[0] - getattr(ind2, fit_attr).values[0]
+        elif f1 or f2:
+            # only one is feasible (the feasible individual wins)
+            value = 1 if f1 else -1
+        elif getattr(ind1, nv_attr) != getattr(ind2, nv_attr):
+            # both infeasible (individual with lower number of violations wins)
+            value = getattr(ind2, nv_attr) - getattr(ind1, nv_attr)
+        else:
+            # both infeasible with same number of violations (individual with
+            # lower constraint violation wins)
+            value = getattr(ind2, cv_attr) - getattr(ind1, cv_attr)
+        return int(value)
+    # return sorted(individuals, cmp=_vch_compare, key=attrgetter(fit_attr))[:k]
+    return sorted(individuals, cmp=_vch_compare)[:k]
+
 #######################################
 # Generalized Reduced runtime ND sort #
 #######################################
@@ -587,4 +692,4 @@ def _partition(array, begin, end):
 
 
 __all__ = ['selNSGA2', 'selSPEA2', 'sortNondominated', 'sortLogNondominated',
-           'selTournamentDCD']
+           'selTournamentDCD', 'selTournamentVCH']
